@@ -12,6 +12,8 @@
   "author": "raj-prasan",
   "license": "ISC",
   "dependencies": {
+    "@ai-sdk/google": "^4.0.50",
+    "ai": "^7.0.77",
     "axios": "^1.19.0",
     "cheerio": "^1.2.0",
     "convex": "^1.45.0",
@@ -23,6 +25,7 @@
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
+    "@types/node": "^26.4.0",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2"
   }

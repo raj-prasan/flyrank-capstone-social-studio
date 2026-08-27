@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation } from "../_generated/server.js";
+import { mutation, query } from "../_generated/server.js";
 
 export const saveBlog = mutation({
   args: {
@@ -17,7 +17,6 @@ export const saveBlog = mutation({
     else{
       const blogId = await ctx.db.insert("blog", {
         content: args.content,
-        status : "draft",
         user_id : args.user_id,
         ...(args.post_url !== undefined && {post_url: args.post_url})
       })
@@ -31,3 +30,16 @@ export const saveBlog = mutation({
     }
   }
 })
+
+export const getBlog = query({
+  args: {
+    id: v.id("blog")
+  },
+  handler : async(ctx, args)=>{
+    const blog = ctx.db.get(args.id);
+    return blog
+  }
+
+})
+
+/* export const getPost =  */
