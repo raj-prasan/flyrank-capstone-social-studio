@@ -18,7 +18,7 @@ export const fetchDataFromUrl = async (href: string) => {
 
 export function parseHTML(html: string) {
   const $ = cheerio.load(html);
-  const blogBody = $("main").text();
+  const blogBody = $("body").text();
   return  blogBody;
 }
 
@@ -27,6 +27,7 @@ export const getBlogContent = async(href: string)=>{
     const html = await fetchDataFromUrl(href);
     if(html){
       const blogBody =  parseHTML(html);
+      if(!blogBody) throw new Error("Error in parsing")
       return blogBody;
     }
     else{

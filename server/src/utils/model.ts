@@ -29,5 +29,15 @@ export const generatePost = async (sourceContent: string) => {
     },
   ],
 });
-  return JSON.parse(text)
+  return parseModelJson(text)
 };
+
+function parseModelJson(text: string) {
+  const cleaned = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  return JSON.parse(cleaned);
+}
