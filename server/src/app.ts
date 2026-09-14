@@ -30,6 +30,6 @@ app.get("/health", (req: Request, res: Response) => {
   });
 });
 
-app.use("/api/v1/ingest-file", blogRouter)
+app.use("/api/v1", blogRouter)
 
 export { app };

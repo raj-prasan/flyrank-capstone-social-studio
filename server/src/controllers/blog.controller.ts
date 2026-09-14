@@ -3,6 +3,7 @@ import { getBlogContent } from "../utils/parse.js";
 import { generatePost } from "../utils/model.js";
 import { db } from "../db/db.init.js";
 import console from "node:console";
+import { postPublishQueue } from "../lib/queue.js";
 
 export const saveBlog = async (req: Request, res: Response) => {
   const { idempotency_key, user_id, post_url, content } = req.body;
@@ -168,6 +169,7 @@ export const getBlogData = async (blog_id: string) => {
   );
   return blog;
 };
+
 export const getPostDataFromBlogId = async (post_id: string) => {
   const blog = await db.query(
     `SELECT *
@@ -186,7 +188,7 @@ export const reviewPost = async (req: Request, res: Response) => {
   if (!id) {
     return res.status(400).json({
       success: false,
-      message: "Cannot find the blog data",
+      message: "Cannot find the post ",
     });
   }
 
@@ -194,14 +196,78 @@ export const reviewPost = async (req: Request, res: Response) => {
     const result = await db.query(
       `UPDATE post
      SET status = $1
-     WHERE blog_id = $2
-     RETURNING *`,
+     WHERE id = $2
+     RETURNING status`,
       [status, id],
     );
+    return res.status(200).json({
+      sucess: true,
+      result: result.rows[0],
+    });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Something went wrong",
+    });
+  }
+};
+
+export const publishPost = async (req: Request, res: Response) => {
+  const { scheduledTime } = req.body;
+  const id = req.params.id as string;
+
+  if (!id) {
+    return res.status(400).json({
+      sucess: false,
+      message: "Cannot find the post data.",
+    });
+  }
+
+  try {
+    const post = await db.query(
+      `
+      SELECT * FROM post WHERE id = $1
+      `,
+      [id],
+    );
+    if (post.rows[0]) {
+      if (post.rows[0].status !== "approved") {
+        return res.status(400).json({
+          sucess: false,
+          message: "Post is not approved to publish",
+        });
+      }
+      const publishAt = new Date(scheduledTime);
+      const delayTime = publishAt.getTime() - Date.now();
+
+      if (Number.isNaN(publishAt.getTime())) {
+        throw new Error("Invalid scheduled date");
+      }
+
+      if (delayTime < 0) {
+        throw new Error("Scheduled time must be in the future");
+      }
+      await postPublishQueue.add(
+        "publish",
+        {
+          postId: id,
+        },
+        {
+          delay: 30000,
+        },
+      );
+      return res.status(201).json({
+        sucess: true,
+        message: "Task Scheduled Sucessfully."
+      })
+    } else {
+      throw new Error("Post not found.");
+    }
+  } catch (error) {
+    return res.status(500).json({
+      message: "Something went Wrong",
+      error: error,
+      sucess: false,
     });
   }
 };
