@@ -1,6 +1,6 @@
 import { Worker, Queue } from "bullmq";
-import { redisConnection } from "../db/redis.init";
-
+import { redisConnection } from "../db/redis.init.js";
+import {bot} from "./../utils/bot.js"
 export const postPublishQueue = new Queue('post publish',{
   connection: redisConnection
 });

@@ -1,0 +1,67 @@
+services:
+  # Redis service for BullMQ queue management
+  redis:
+    image: redis:7-alpine
+    container_name: flyrank-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - flyrank-network
+
+  # Backend Express API service
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: flyrank-server
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DATABASE_URL=${DATABASE_URL}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+      - BOT_TOKEN=${BOT_TOKEN}
+    env_file:
+      - path: ./server/.env.local
+        required: false
+      - path: ./.env
+        required: false
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - flyrank-network
+
+  # Frontend Client service (Vite + React served by Nginx reverse proxy)
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: flyrank-client
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+      - "80:80"
+    depends_on:
+      - server
+    networks:
+      - flyrank-network
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  flyrank-network:
+    driver: bridge

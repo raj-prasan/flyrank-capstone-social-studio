@@ -135,6 +135,10 @@ export const createPost = async (req: Request, res: Response) => {
     }
     const { variants: response } = await generatePost(blog.rows[0].content);
 
+    const xPost = response.find((v: any) => v.platform?.toLowerCase() === 'x')?.content || response[0]?.content || "";
+    const linkedinPost = response.find((v: any) => v.platform?.toLowerCase() === 'linkedin')?.content || response[1]?.content || "";
+    const instagramPost = response.find((v: any) => v.platform?.toLowerCase() === 'instagram')?.content || response[2]?.content || "";
+
     const result = await db.query(
       `INSERT INTO post (user_id, status, blog_id, x_post, linkedin_post, instagram_post)
         VALUES ($1, $2, $3, $4, $5, $6)
@@ -143,9 +147,9 @@ export const createPost = async (req: Request, res: Response) => {
         blog.rows[0].user_id,
         "draft",
         blog.rows[0].id,
-        response[0].content,
-        response[1].content,
-        response[2].content,
+        xPost,
+        linkedinPost,
+        instagramPost,
       ],
     );
     return res.status(201).json({
@@ -154,8 +158,13 @@ export const createPost = async (req: Request, res: Response) => {
       instagram_post: result.rows[0].instagram_post,
       linkedin_post: result.rows[0].linkedin_post,
     });
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.error("createPost error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error?.message || "Failed to generate post variants",
+      error,
+    });
   }
 };
 
@@ -179,6 +188,62 @@ export const getPostDataFromBlogId = async (post_id: string) => {
     [post_id],
   );
   return blog;
+};
+
+export const getPostById = async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  try {
+    const post = await db.query(
+      `SELECT p.*, b.content as blog_content, b.post_url
+       FROM post p
+       LEFT JOIN blog b ON p.blog_id = b.id
+       WHERE p.id = $1
+       LIMIT 1`,
+      [id],
+    );
+    if (!post.rows[0]) {
+      return res.status(404).json({ success: false, message: "Post not found" });
+    }
+    return res.status(200).json({ success: true, post: post.rows[0] });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllPosts = async (req: Request, res: Response) => {
+  const userId = req.query.user_id as string;
+  try {
+    const query = userId
+      ? `SELECT p.*, b.content as blog_content, b.post_url
+         FROM post p
+         LEFT JOIN blog b ON p.blog_id = b.id
+         WHERE p.user_id = $1
+         ORDER BY p.id DESC
+         LIMIT 50`
+      : `SELECT p.*, b.content as blog_content, b.post_url
+         FROM post p
+         LEFT JOIN blog b ON p.blog_id = b.id
+         ORDER BY p.id DESC
+         LIMIT 50`;
+    const params = userId ? [userId] : [];
+    const posts = await db.query(query, params);
+    return res.status(200).json({ success: true, posts: posts.rows });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getBlogById = async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  try {
+    const blog = await getBlogData(id);
+    if (!blog.rows[0]) {
+      return res.status(404).json({ success: false, message: "Blog not found" });
+    }
+    return res.status(200).json({ success: true, blog: blog.rows[0] });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 export const reviewPost = async (req: Request, res: Response) => {
@@ -253,7 +318,7 @@ export const publishPost = async (req: Request, res: Response) => {
           postId: id,
         },
         {
-          delay: 30000,
+          delay: delayTime,
         },
       );
       return res.status(201).json({
